@@ -1,0 +1,54 @@
+---
+title: "Assignment1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+chooseCRANmirror(graphics = getOption("menu.graphics"), ind = 79,
+                 local.only = FALSE)
+
+ BOOK1 <- read.csv("BOOK1.csv")
+
+ View(BOOK1)
+ 
+ summary(BOOK1)
+ 
+ install.packages("vcd")
+ 
+  mean(BOOK1$AGE)
+ 
+    median(BOOK1$AGE)
+  
+     mode(BOOK1$AGE)
+   
+     install.packages("dplyr")
+    library(dplyr)
+    select(BOOK1, AGE:SERIES)
+     filter(BOOK1, AGE==21)
+     filter(BOOK1, SERIES==5)
+     arrange(BOOK1, GENDER)
+     
+
+summary(BOOK1)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+plot(BOOK1$AGE,BOOK1$SERIES)
+     plot(BOOK1$AGE,BOOK1$COMPLAINTS)
+    ```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
