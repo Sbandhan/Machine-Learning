@@ -180,7 +180,7 @@ Total_outcome2<-factor (UnBank[,7], levels=c(0,1), labels=c ("Accepted","Refused
 ```{r}
 knn_testing <-knn (training_data2,TestTraining_Data2,cl=train_outcome2, k=finestk_fit$k, prob = TRUE)
 CrossTable(TestTraining_outcome2,knn_testing, prop.chisq = FALSE)
-#test Accuracy :97.09
+
 ```
 
 
@@ -189,7 +189,7 @@ CrossTable(TestTraining_outcome2,knn_testing, prop.chisq = FALSE)
 ```{r}
 knn_total<-knn(training_data2,Total_Data2, cl=train_outcome2, k=finestk$k, prob=TRUE)
 crossTable(Total_outcome2,knn_total, prop.chisq=FALSE)
-#Test Accuracy : 
+
 ```
 
  
