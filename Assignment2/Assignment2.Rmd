@@ -1,5 +1,7 @@
 ---
 title: "Assignment2"
+author:"Aravind"
+date:"10/03/2021
 output: html_document
 ---
 
@@ -9,20 +11,203 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and Ms word documents.For more details on using R markdown see <http://rmarkdown.rstudio.com>>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r}
+#loading all the required packages by using library function
+library(dplyr)
+library(caret)
+library(class)
+library(kknn)
+library(ISLR)
+library(FNN)
+library(gmodels)
+library(dummies)
+```
+#Reading the UBank csv file
+```{r}
+UnBank<-read.csv("UniversalBank.csv")
+
+# Removing ID and ZIPCODE attributes
+
+ub<-UnBank[,c(-1,-5)]
+str(ub)
+```
+#creating dummies for the Education column by using dummies package
+
+```{r}
+Education_dummy_model<-dummy(UnBank$Education)
+tmp<-cbind(ub,Education_dummy_model)
+head(tmp)
 ```
 
-## Including Plots
+# Remove the Education column
+```{r}
+withBank <-tmp[c(-6)]
+head(withBank)
+```
+#Data partition: Training-60% and Validation-40%
+```{r}
+set.seed(18)
+Index<-createDataPartition(withBank$Income,p=0.6,list=FALSE)
+train_data<-withBank[Index,]
+dim(train_data)
 
-You can also embed plots, for example:
+valid_data<-withBank [-Index ,]
+dim(valid_data)
+summary(train_data)
+summary(valid_data)
+```
+#standardise the data using Normalization
+```{r}
+norm_model<-preProcess(train_data, method =c("center","scale"))
+head(norm_model)
+training_nf<-predict(norm_model,train_data)
+validation_nf<-predict(norm_model,valid_data)
+total_nf<-predict(norm_model,withBank)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+summary(total_nf)
+summary(training_nf)
+summary(validation_nf)
+
+set.seed(18)
+
+training_data<-training_nf[,-5]
+head(training_data)
+train_outcome<-factor(train_data[,5],levels=c(0,1), labels=c("Accepted","Refused"))
+head(train_outcome)
+valid1_data <-validation_nf[,-5]
+head(valid1_data)
+validation_outcome<-factor(valid_data[,5],levels = c(0,1), labels = c("Accepted","Refused"))
+head(validation_outcome)
+total_data<-total_nf[,-5]
+total_outcome<-factor(withBank[,5], levels = c(0,1),labels = c("Accepted","Refused"))
+head(total_outcome)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#1.1.Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1, and Credit Card = #Perform a k-NN classification with all predictors except ID and ZIP code using k = 1.
+# customer prediction with k=1 value
+
+```{r}
+test_data <- data.frame (Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1,  CreditCard=1,stringsAsFactors = FALSE)
+
+test_data
+```
+#2.What is a choice of k that balances between overfitting and ignoring the predictor information?
+```{r}
+library(caret)
+library(kknn)
+set.seed(100)
+finestk<-data.frame(k=seq(1,30,1),  accuracy=rep(0,30))
+head(finestk)
+for (i in 1:30) {
+  knn.pred<-knn(training_data,valid1_data, cl=train_outcome,k=i)
+  finestk[i,2]<-confusionMatrix(knn.pred,validation_outcome)$ovearall[1]
+  
+}
+
+finestk
+plot(finestk, type ="o")
+
+
+```
+
+
+
+
+
+# 3Show the confusion matrix for the validation data that results from using the best k.
+```{r}
+knn.pred <-knn(train_data,valid_data,cl=train_outcome,k=finestk$k,prob=TRUE)
+
+CrossTable(validation_outcome,knn.pred)
+```
+# 4 Consider the following customer: Age = 40, Experience = 10, Income = 84,Family = 2, CCAvg = 2, Education_1 = 0, Education_2 =1, Education_3 = 0,Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1 and CreditCard = 1. Classify the customer using the best k.
+```{r}
+TestTraining_Data<-c(40, 10,  8, 2, 2,0,0 ,0, 1, 1, 0, 1, 0)
+bestfitknn<-knn(train_data,TestTraining_Data,cl=train_outcome,k=finestk$k,prob=TRUE)
+(bestfitknn)
+#Using the complete data set
+totalknn<-knn(train_data,total_data,cl=train_outcome,k=finestk$k,prob = TRUE)
+CrossTable(total_outcome ,totalknn)
+```
+#5 Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Apply the k-NN method with the k chosen above. Compare the confusion matrix of the test set with that of the training and validation sets. Comment on the differences and their reason.
+```{r}
+IndexNew1<-createDataPartition(UnBank$Income,p=0.5,list = FALSE)
+training_data2=UnBank[IndexNew1,]
+
+Remdata<-UnBank[-IndexNew1,]
+
+IndexNew2<-createDataPartition(UnBank$Income,p=0.6,list =FALSE)
+valid_data2 <- Remdata[IndexNew2,]
+
+test_data2<-Remdata[-IndexNew2,]
+head(test_data2)
+```
+# using the Normalization for Standardizing the data 
+```{r}
+norm_value2<-preProcess(training_data2,method = c("center","scale"))
+
+training_nf2<-predict(norm_value2,training_data2)
+
+validation_nf2<-predict(norm_value2,valid_data2)
+
+test_nf2<-predict(norm_value2,test_data2)
+
+total_nf2<-predict(norm_value2,UnBank)
+
+training_data2<- training_nf2[-7]
+train_outcome2 <- factor(training_data2[-7], levels = c(0,1),labels = "Accepted","Refused")
+
+
+valid_data2<-validation_nf2[-7]
+validation_outcome2<-factor(valid_data2[,7], levels=c(0,1), labels = "Accepted","Refused")
+
+
+TestTraining_Data2<-test_nf2[,-7]
+TestTraining_outcome2<-factor(test_data2[,-7],levels = c(0,1),labels("Accepted","Refused"))
+
+Total_Data2<-total_nf2[,-7]
+Total_outcome2<-factor (UnBank[,7], levels=c(0,1), labels=c ("Accepted","Refused"))
+
+```
+
+
+
+#Applying KNN with the optium k value (K=4)  to the  Training and validation set
+#validation
+```{r}
+knn_testing <-knn (training_data2,TestTraining_Data2,cl=train_outcome2, k=finestk_fit$k, prob = TRUE)
+CrossTable(TestTraining_outcome2,knn_testing, prop.chisq = FALSE)
+#test Accuracy :97.09
+```
+
+
+#Applying KNN with the optium k value (k=4) to the entire dataset.
+#total
+```{r}
+knn_total<-knn(training_data2,Total_Data2, cl=train_outcome2, k=finestk$k, prob=TRUE)
+crossTable(Total_outcome2,knn_total, prop.chisq=FALSE)
+#Test Accuracy : 
+```
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                           
