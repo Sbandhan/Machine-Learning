@@ -35,8 +35,8 @@ str(ub)
 #creating dummies for the Education column by using dummies package
 
 ```{r}
-Education_dummy_model<-dummy(UnBank$Education)
-tmp<-cbind(ub,Education_dummy_model)
+Education_dummy_model <- dummy(ub$Education)
+tmp <- cbind(ub,Education_dummy_model)
 head(tmp)
 ```
 
@@ -47,7 +47,7 @@ head(withBank)
 ```
 #Data partition: Training-60% and Validation-40%
 ```{r}
-set.seed(18)
+set.seed(20)
 Index<-createDataPartition(withBank$Income,p=0.6,list=FALSE)
 train_data<-withBank[Index,]
 dim(train_data)
@@ -56,46 +56,54 @@ dim(valid_data)
 summary(train_data)
 summary(valid_data)
 ```
+
 #standardise the data using Normalization
+
 ```{r}
 norm_model<-preProcess(train_data, method =c("center","scale"))
 head(norm_model)
 training_nf<-predict(norm_model,train_data)
 validation_nf<-predict(norm_model,valid_data)
 total_nf<-predict(norm_model,withBank)
+
 summary(total_nf)
 summary(training_nf)
 summary(validation_nf)
-set.seed(18)
-training_data<-training_nf[,-5]
+
+set.seed(10)
+
+training_data<-training_nf[,-7]
 head(training_data)
 train_outcome<-factor(train_data[,5],levels=c(0,1), labels=c("Accepted","Refused"))
 head(train_outcome)
-valid1_data <-validation_nf[,-5]
+valid1_data <-validation_nf[,-7]
 head(valid1_data)
-validation_outcome<-factor(valid_data[,5],levels = c(0,1), labels = c("Accepted","Refused"))
+validation_outcome<-factor(valid_data[,7],levels = c(0,1), labels = c("Accepted","Refused"))
 head(validation_outcome)
-total_data<-total_nf[,-5]
-total_outcome<-factor(withBank[,5], levels = c(0,1),labels = c("Accepted","Refused"))
+
+total_data<-total_nf[,-7]
+
+total_outcome<-factor(withBank[,7], levels = c(0,1),labels = c("Accepted","Refused"))
 head(total_outcome)
 ```
 # plotting the data
-```{r}
 
+```{r}
 ggplot(valid_data,aes(x=Age, y=Experience)) + geom_point()
 ggplot(valid_data,aes(x=Income)) + geom_histogram()
-
 ggplot(valid_data,aes(x=Experience,y=Income)) + geom_point()
-
 ```
-#1.1.Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1, and Credit Card = #Perform a k-NN classification with all predictors except ID and ZIP code using k = 1.
+
+#1.1.; = #Perform a k-NN classification with all predictors except ID and ZIP code using k = 1.
 # customer prediction with k=1 value
 
 ```{r}
-test_data <- data.frame (Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1,  CreditCard=1,stringsAsFactors = FALSE)
-test_data
+test_data <- data.frame (Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities.Account = 0, CD.Account = 0, Online = 1,  CreditCard=1)
+knn_test1 <- knn(training_data, TestTraining_Data, cl = train_outcome, k=1, prob = TRUE)
+knn_test1
 ```
 #2.What is a choice of k that balances between overfitting and ignoring the predictor information?
+
 ```{r}
 library(caret)
 library(kknn)
@@ -112,15 +120,15 @@ plot(finestk, type ="o")
 ```
 
 
+# 3 Show the confusion matrix for the validation data that results from using the best k.
 
-
-
-# 3Show the confusion matrix for the validation data that results from using the best k.
 ```{r}
 knn.pred <-knn(train_data,valid_data,cl=train_outcome,k=finestk$k,prob=TRUE)
 CrossTable(validation_outcome,knn.pred)
 ```
+
 # 4 Consider the following customer: Age = 40, Experience = 10, Income = 84,Family = 2, CCAvg = 2, Education_1 = 0, Education_2 =1, Education_3 = 0,Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1 and CreditCard = 1. Classify the customer using the best k.
+
 ```{r}
 TestTraining_Data<-c(40, 10,  8, 2, 2,0,0 ,0, 1, 1, 0, 1, 0)
 bestfitknn<-knn(train_data,TestTraining_Data,cl=train_outcome,k=finestk$k,prob=TRUE)
@@ -129,6 +137,7 @@ bestfitknn<-knn(train_data,TestTraining_Data,cl=train_outcome,k=finestk$k,prob=T
 totalknn<-knn(train_data,total_data,cl=train_outcome,k=finestk$k,prob = TRUE)
 CrossTable(total_outcome ,totalknn)
 ```
+
 #5 Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Apply the k-NN method with the k chosen above. Compare the confusion matrix of the test set with that of the training and validation sets. Comment on the differences and their reason.
 ```{r}
 IndexNew1<-createDataPartition(UnBank$Income,p=0.5,list = FALSE)

@@ -1,0 +1,123 @@
+---
+title: "untitled6"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ub_main <- read.csv("UniversalBank.csv")
+head(ub_main)
+str(ub_main)
+```
+
+
+library(class)
+library(dplyr)
+library(caret)
+library(ISLR)
+library(ggplot2)
+library(dummies)
+
+```{r}
+install.packages("ggplot2")
+library(ggplot2)
+ggplot(ub_main, aes(x = Age, y= Experience)) + geom_point()
+
+ggplot(ub_main, aes(x = Income)) + geom_histogram()
+
+ggplot (ub_main, aes(x= Experience, y= Income))+ geom_point()
+```
+
+#creating dummies for the Education column by using dummies package
+
+
+```{r}
+library(dummies)
+Education_dummy_model <- dummy(ub$Education)
+tmp <- cbind(ub,Education_dummy_model)
+head(tmp)
+```
+#Separating the categorical and numerical variables
+```{r}
+
+
+
+uban_category<-c("Education","Personal.Loan")
+
+uban_number<-c("Age","Experience","Income","Family","CCAvg","Mortgage","Securities.Account","CD.Account","Online","Credicard")
+
+category_ub<-ub_main[which(colnames(ub_main)%in% uban_category)]
+category_ub<-data.frame(apply(category_ub,2,as.character))
+```
+# Numerical variables
+```{r}
+
+n_ub<-ub_main[(which(colnames(ub_main)%in% ub_main))]
+head(n_ub)
+str(n_ub)
+
+n_ub_subset<-cbind(n_ub,tmp)
+head(n_ub_subset)
+str(n_ub_subset)
+dim(n_ub_subset)
+```
+
+```{r}
+library(caret)
+library(lattice)
+set.seed(12)
+
+split_index<- createDataPartition (n_ub_subset$Personal.Loan,p=0.6,times=1, list=FALSE)
+
+train_ub<-n_ub_subset[split_index,] 
+t_ub<-n_ub_subset[-split_index,]
+```
+
+# Normalization
+```{r}
+t_normal<-train_ub
+test_n<-t_ub
+ summary(train_ub)
+ 
+ str(train_ub)
+ dim(train_ub)
+ n_model<- preProcess(train_ub[,-14],method=c("center","scale"))
+ 
+ t_normal<-predict(n_model,train_ub[,-14])
+ test_n<-predict(n_model,t_ub[,-14])
+ 
+ head(t_normal)
+ head(test_n)
+ dim(t_normal)
+ dim(test_n)
+ 
+```
+
+
+
+
+ # problem 1
+
+```{r}
+
+
+
+
+
+library(class)
+ library(gmodels)
+ 
+ prob1_sample <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, SecuritiesAccount = 0, CDAccount = 0, Online = 1,CreditCard=1) 
+ 
+ knn_test1<-knn(t_normal,prob1_sample,cl=train_ub$personal.Loan, k=1,prob=TRUE)
+ knn_test1
+ 
+ ```
+ 
+
+ 
+
+ 

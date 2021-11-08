@@ -1,0 +1,111 @@
+---
+title: '4'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+Mdata<-read.csv("Pharmaceuticals.csv")
+head(Mdata)
+
+dim(Mdata)  # In this data frame there are 14 variables and 21 records  
+
+str(Mdata) # It Displays the number of variables as well as their data types.
+
+U<-unique(Mdata)  # This indicates that there are no duplicate rows
+dim(U)
+
+pairs(Mdata[3:11]) # plotting all possible discrete variables
+
+library(DataExplorer)
+introduce(Mdata) # It shows the total number of discrete and continuous variables,as well as any missing values
+
+
+# There are 9 Continuous variables , 5 discrete variables and 0 missing variables 
+```
+
+# Data Exploration
+```{r}
+set.seed(123)
+plot(Market_Cap~Rev_Growth,Mdata)
+with(Mdata, text(Market_Cap~Rev_Growth, labels=Symbol,pos=4,cex=0.4))    # A general estimation of how the market cap vs revenue growth distribution looks.
+
+plot(Market_Cap~Net_Profit_Margin,Mdata)
+with(Mdata, text(Market_Cap~Net_Profit_Margin,labels=Symbol,pos=4,cex=0.4))
+```
+
+K-Means Clustering Model
+
+```{r}
+library(tidyverse)
+library(factoextra)
+library(ISLR)
+
+
+Mdata1<-scale(Mdata[, c(3:11)], center=TRUE,scale=TRUE)
+
+dist_Mdata<-get_dist(Mdata1)
+print(dist_Mdata,digits=3)
+
+heatmap(Mdata1,scale="column")
+#Companies 8 and 17 are the most distant  from one another,with a distance of 7.18 miles
+
+Mdata[c(8,17),] # From this we  can observe that there is a significant difference in market capital,revenue growth and net profit profit margin between these two organizations.
+
+
+boxplot(Mdata1,col=c("deepskyblue","deepskyblue4","cadetblue","cadetblue1","cadetblue2","cadetblue3","cadetblue4","dodgerblue","dodgerblue4"), las=2)
+```
+
+Finding optimal number for k as per Elbow method
+
+```{r}
+fviz_nbclust(Mdata1,kmeans,method="wss")+
+  geom_vline(xintercept=2,linetype=2)   #Elbow Method
+fviz_nbclust(Mdata1,kmeans,method= "silhouette")  #Silhouette Method
+```
+# Outliers have a significant impact on the silhouette approach of determining the appropriate amount of k.Because our data has a large number of outliers.
+
+# using the silhouette method to remove the outliers,the ideal value of k was likewise found to be 2.
+
+# Hence,we can consider the optimal number of k using the Elbow method.
+ 
+```{r}
+#k=2
+k_mean_model2<-kmeans(Mdata1,centers=2,nstart=25)
+fviz_cluster(k_mean_model2,data=Mdata1)+labs(subtitle="k=2")
+k_mean_model2
+```
+ 
+# b. Interpret the clusters with respect to the numerical variables used in forming the clusters.
+
+Companies in cluster 2 have a higher Return on Equity than companies in cluster 1 for the identical Return on Equity values.
+
+# c. Is there a pattern in the clusters with respect to the numerical variables (10 to 12)? (those not used in forming the clusters) 
+ 
+Cluster 1 has highest rev_growth, highest net_profit_margin and has hold median recommendation.
+
+Cluster 2 has low rev_growth, high net_profit_margin and has moderate buy recommendation.
+ 
+# d. Provide an appropriate name for each cluster using any or all of the variables in the dataset.
+
+Large size company : cluster 1
+
+Small size company : cluster 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
