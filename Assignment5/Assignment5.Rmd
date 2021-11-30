@@ -1,0 +1,135 @@
+---
+title: "Assignment5"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+```
+# Hierarchical Clustering
+
+```{r}
+C_df<-read.csv("cereals.csv")
+str(C_df)
+head(C_df)
+```
+
+```{r}
+
+library(DataExplorer)
+introduce(C_df) # Missing values
+
+C_df1<-na.omit(C_df) #Data set with missing values in the rows that have been omitted
+
+
+```
+# Apply hierarchical clustering to the data using normalization measures and Euclidean distance.
+
+
+```{r}
+library(tidyverse)
+library(factoextra)
+library(dendextend)
+library(cluster)
+library(fastDummies)
+
+
+#Categorical and numerical variables must be identified.
+
+C_df1$name<-as.factor(C_df1$name)
+C_df1$mfr<-as.factor(C_df1$mfr)
+C_df1$type<-as.factor(C_df1$type)
+C_df1$shelf<-as.factor(C_df1$shelf)
+
+
+# Creating dummy variables
+vaar<-colnames(C_df1)
+n_var<-c("calories","protein","fat","sodium","fiber","carbo","sugars","potass","vitamins","weight","cups","rating")
+cat_var<-C_df1[which(colnames(C_df1)%in%c('name','mfr','type','shelf'))]
+cat_var<-data.frame(apply((C_df1[which(colnames(C_df1)%in%c('name','mfr','type','shelf'))]),2,as.factor))
+dummy_vars<-fastDummies::dummy_columns(cat_var %>% select(-name))
+n_vars<-C_df1[,c(4:12,14:16)]
+C_df2<-cbind(C_df1$name,dummy_vars,n_vars)%>% select(-c(mfr,type,shelf))
+
+
+```
+
+#Normalizing the data set
+
+```{r}
+C_df2[,c(2:25)]<-scale(C_df2[,c(2:25)],scale = TRUE, center = TRUE)
+```
+
+Q1.Use Agnes to compare the clustering from single linkage, complete linkage, average linkage, and Ward. Choose the best method.
+
+```{r ,fig.height=8, fig.width=14}
+Hclustering1<- agnes(C_df2, method="complete")
+Hclustering2<- agnes(C_df2, method = "average")
+Hclustering3<- agnes(C_df2, method="single")
+Hclustering4<- agnes(C_df2, method="ward")
+
+
+ac<-c(Hclustering1$ac,Hclustering2$ac,Hclustering3$ac,Hclustering4$ac)
+ac_method<-c(Hclustering1$method,Hclustering2$method,Hclustering3$method,Hclustering4$method)
+ac_df<-data.frame(ac_method, ac)
+ac_df
+
+pltree(Hclustering4,cex=0.6,hang=-1,main="Based on ward Dendrogram",labels=C_df2$'C_df1$name')
+
+```
+#According to the table above,the ward technique has the highest  agglomerative coefficient,meaning it is the closest to one.As a result it produces the most clusters.
+
+
+2.How many clusters would you choose?
+```{r}
+fviz_nbclust(C_df2,hcut,method="wss")+geom_vline(xintercept=2,linetype=5)
+fviz_nbclust(C_df2,hcut,method = "silhouette")
+
+C_df2<-C_df2%>% mutate(cluster=cutree(Hclustering4,k=2))
+
+```
+#I will select Two clusters based on the dendogram
+
+
+3.Comment on the structure of the clusters and on their stability.
+```{r}
+library(caret)
+library(dplyr)
+set.seed(12)
+split_index<-createDataPartition(C_df2$rating,p=0.6,times=1,list=FALSE)
+
+C_p1<-C_df2[ split_index, ]
+C_p2<-C_df2[-split_index, ]
+
+
+centroid1<-C_p1 %>% select_if(is.numeric) %>% filter(cluster==1) %>% colMeans()
+
+centroid2<-C_p1 %>% select_if(is.numeric)%>% filter(cluster==2)%>% colMeans()
+
+centroid<-rbind(centroid1,centroid2)
+
+
+cluster_B<-data.frame(data=seq(1,nrow(C_p2),1),clusterB=rep(0,nrow(C_p2)))
+
+
+for (x in 1:nrow(C_p2)) {cluster_B$clusterB<-which.min(as.matrix(get_dist(as.data.frame(rbind(centroid[,-25],C_p2[x,c(-1,-26)]))))[3,-3])
+  
+}
+  
+
+cluster_B<-cluster_B %>% mutate(orig_clusters=C_p2$cluster)
+
+mean(cluster_B$clusterB==cluster_B$orig_clusters)
+```
+# According to the comparison,the clusters are stable.
+
+4. The elementary public schools would like to choose a set of cereals to include in their daily cafeterias
+
+```{r}
+
+h_cereals<-data.frame(C_df2 %>% filter(cluster==2) %>% select_if(is.numeric) %>% colMeans())
+```
+# Cluster Two has cereals that are high in protein,vitamins,carbohydrates and fiber,but low in sodium and sugar.As a result,Cereals in cluster 2 can be used to maintain a healthy diet.
+
