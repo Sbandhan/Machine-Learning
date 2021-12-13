@@ -1,0 +1,300 @@
+
+---
+title: "Final_Exam"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(cluster)
+library(factoextra)
+```
+
+
+
+```{r}
+overview_of_customer_orders_raw = read.csv("customerdata.csv")
+
+# Renaming the colnames
+colnames(overview_of_customer_orders_raw)=c("Cust_Id","Time_for_the_first_order","Frequently_Order_DateTime","All_of_the_orders","Last_7_Days_orders","In_the_Last_4_weeks_orders","Total_Amount","Amount_in_the_Last_7_days","Amount_during_theLast_4_weeks","Distance_Fromthe_Resturant_on_Average","Typically_DeliveryTime")
+
+#str Data indicates the type of data being kept,this indicates that it is handling date as a factor,requiring conversion to Date format
+
+str(overview_of_customer_orders_raw)
+```
+
+```{r}
+dim(overview_of_customer_orders_raw)
+```
+
+
+
+
+# Iam assuming that the average distance from the restaurant and the average delivery time apply to all of the customer orders.
+
+# Because of the Date time which was stored in Factor format,we will convert it to Date format in the Following steps
+ 
+ 
+ 
+ # Now we look at summary data to check if there are any missing values and to have better understanding of the data's dispersion
+```{r}
+# summary help us to understand the distribution of each data set as well as any missing values
+summary(overview_of_customer_orders_raw)
+```
+
+#  Data cleaning  and new column creation
+
+I modified the date format,because we do not have all of the details for all orders,I removed the time data for the first and last order
+
+```{r}
+overview_of_customer_orders_raw$First_Order_Date= as.Date(overview_of_customer_orders_raw$Time_for_the_first_order,format= "%m/%d/%y")
+overview_of_customer_orders_raw$Frequently_Order_Date=as.Date(overview_of_customer_orders_raw$Frequently_Order_DateTime,format = "%m/%d/%y")
+
+overview_of_customer_orders_raw$Present_Date= max(overview_of_customer_orders_raw$Frequently_Order_Date)+ 1
+
+overview_of_customer_orders_raw$countdown_to_the_Last_Order = as.numeric(overview_of_customer_orders_raw$Present_Date - overview_of_customer_orders_raw$Frequently_Order_Date)
+
+overview_of_customer_orders_raw$Days_since_Initial_Order = as.numeric(overview_of_customer_orders_raw$Present_Date - overview_of_customer_orders_raw$First_Order_Date)
+```
+
+#Then over the last 7 days and 4 weeks I filtered by cases where the order value was NA and from those users,I removed the users with the shortest time 
+
+
+```{r}
+Null_order_7Days = overview_of_customer_orders_raw [ is.na(overview_of_customer_orders_raw$Last_7_Days_orders),]
+Null_order_4Weeks = overview_of_customer_orders_raw[is.na(overview_of_customer_orders_raw$In_the_Last_4_weeks_orders),]
+
+print(paste("For Users who had NA value in last 7 Days orders , the minimum value for Recent Order placed is ",min(Null_order_7Days$countdown_to_the_Last_Order),paste("Days"),sep = ""))
+print(paste("For users who had NA value in last 4 Week orders,the minimum value for Recent Order placed is",min(Null_order_4Weeks$countdown_to_the_Last_Order),paste("Days"),sep=""))
+
+```
+#over the last 7 days and 4 weeks I filtered by cases where the order value was NA and from those users,I removed the users with the shortest time 
+
+# The minimum days for recent orders are larger than 7 days and 28  days,respectively.As a result,we may fairly assume that the NA values are not missing,but rather zero.so we gona replace them with 0 .
+```{r}
+overview_of_customer_orders_raw$Last_7_Days_orders=ifelse(is.na(overview_of_customer_orders_raw$Last_7_Days_orders),0,overview_of_customer_orders_raw$Last_7_Days_orders)
+
+overview_of_customer_orders_raw$In_the_Last_4_weeks_orders=ifelse(is.na(overview_of_customer_orders_raw$In_the_Last_4_weeks_orders),0,overview_of_customer_orders_raw$In_the_Last_4_weeks_orders)
+```
+
+# I established an average order value(AV) column,which will be used in place of the over all order value and the distance from the restaurant on a average is negative i labled them as 0.
+
+```{r}
+overview_of_customer_orders_raw$Distance_Fromthe_Resturant_on_Average =ifelse(overview_of_customer_orders_raw$Distance_Fromthe_Resturant_on_Average<0,0,overview_of_customer_orders_raw$Distance_Fromthe_Resturant_on_Average)
+
+
+overview_of_customer_orders_raw$Av_All =round(overview_of_customer_orders_raw$Total_Amount/overview_of_customer_orders_raw$All_of_the_orders,0)
+
+overview_of_customer_orders_raw$Av_Last_7_Days =round(ifelse(overview_of_customer_orders_raw$Last_7_Days_orders==0,0,overview_of_customer_orders_raw$Amount_in_the_Last_7_days/overview_of_customer_orders_raw$Last_7_Days_orders),0)
+
+overview_of_customer_orders_raw$Av_Last_4_Weeks =round(ifelse(overview_of_customer_orders_raw$In_the_Last_4_weeks_orders==0,0,overview_of_customer_orders_raw$Amount_during_theLast_4_weeks/overview_of_customer_orders_raw$In_the_Last_4_weeks_orders),0)
+```
+
+# Customer segmentation
+
+```{r}
+
+q1 = 100 - round(100*sum(overview_of_customer_orders_raw$Last_7_Days_orders==0)/nrow(overview_of_customer_orders_raw),0)
+
+q2 = 100 - round(100*sum(overview_of_customer_orders_raw$In_the_Last_4_weeks_orders==0)/nrow(overview_of_customer_orders_raw),0)
+```
+
+
+# In the "q1 " percent of consumers transacted in the previous 7 days ,while "q2"  percent transacted in the previous 4 weeks.This indicates that we have a large number of users that have not interacted in the last month.
+
+# I am generating a filtered data set for our raw data that only takes in to account relevant columns while building the model.Ordercount,Av,Distance from the restaurant on Average,Typically deliverytime since first and last orders are the key columns for our analysis.we have essentially deleted a few columns that provide redundant data,such as Total value of the order which is a function of total orders and AV
+
+# Applying pricipal component analysis 
+
+```{r}
+f_data = overview_of_customer_orders_raw[ , c(1,4:6,10,11,15:19)]
+set.seed(1234)
+
+p_data1 = prcomp(f_data[,-1],center = T,scale. = T)
+
+plot(p_data1,type = "l",
+     main = "variance of P")
+```
+
+# when we look at the fifth and the sixth principal components,we can see that the variance still substantial.so lets get started with all of the variables in this model
+
+# Here  I'm attempting to construct a clustering model in order to determine whether we can separate people into distinct catergories.Using k means clustering for this.i opted to look at the log and norm transformations and use the elbow technique to compute the minimum errors and decide how many clusters to divide the data into because the summary data comprises variables at different scales.
+
+
+```{r}
+set.seed(00909)
+
+normalize <-function(x) {
+  return((x-min(x))/(max(x) - min(x)))
+  
+}
+ft_data_log = log(f_data[,-1]+2)
+
+ft_data_norm = as.data.frame(lapply(f_data[,-1],normalize))
+
+
+score_wss_log<-(nrow(ft_data_log)-1)*sum(apply(ft_data_log,2,var)) 
+
+for (i in 2:15)  score_wss_log[i] <-sum(kmeans(ft_data_log,centers = i)$withinss)
+  
+
+  
+plot(1:15,score_wss_log[1:15],type = "b",xlab = "Count of Clusters",ylab="Squares with in the group",main = "The Elbow approach is used to find the best clusters for log Data",pch=20,cex=2)
+
+score_wss_normal<-(nrow(ft_data_norm)-1)*sum(apply(ft_data_norm,2,var))
+
+for (i in 2:15)
+  score_wss_normal[i] <-sum(kmeans(ft_data_norm,
+                                   centers = i)$withinss)
+  
+
+
+plot(1:15,score_wss_normal[1:15],type = "b",xlab = "Count of clusters",ylab = "Squares with in the group",main = "The Elbow approach is used to find the best clusters for Normalized Data",pch=20,cex=2)
+```
+
+
+
+# The normalized data makes more sense to proceed with, as seen by the charts above.
+
+# Denormalize the data and look at the centers means of each variable in the Three clusters
+
+
+```{r}
+
+minvec <-sapply(f_data[,-1],min)
+maxvec<-sapply(f_data[,-1],max)
+denormalize<-function(x,minval,maxval) 
+  return(x*(maxval-minval))
+  
+
+
+set.seed(009)
+kmeans_3_cl_normal = kmeans(ft_data_norm,3,nstart = 100)
+
+kmeans_3_cl_actual = NULL
+t1=NULL
+
+for (i in 1:10)
+  {  t1 = (kmeans_3_cl_normal$centers[,i] * (maxvec[i]-minvec[i])) + minvec[i]
+     kmeans_3_cl_actual = cbind(kmeans_3_cl_actual,t1)
+  
+}
+
+colnames(kmeans_3_cl_actual) = colnames(f_data[-1])
+print("Below is the mean value of all variables in each cluster")
+kmeans_3_cl_actual
+print("The following table shows the number of customers in each cluster")
+kmeans_3_cl_normal$size
+#kmeans_3_cl_normal$centers
+#fviz_cluster(kmeans_3_cl_normal,data = ft_data_norm)
+```
+
+# we can observe from the mean values of each variable in each of the three clusters  that transaction frequency and AV are the most variable, whereas typical delivery time and  distance on average are not.
+
+# Classification of customers:
+1.Over the last 7 days and 4 weeks customers are active but with Low frequency and Low Av.
+2.Over the last 7 days and 4 weeks ,customers are active with high frequency  and High Av.
+3.Customers are not in active since last 7 days and over 4 weeks 
+
+# Building the cluster for  active customers by removing the users who did not interacted in last 4 weeks
+
+```{r}
+ft_order_data = f_data[f_data$In_the_Last_4_weeks_orders !=0,]
+
+normalize <-function(x) {
+  return((x-min(x))/ (max(x)-min(x)))
+}
+  
+ ft_order_data_norm=as.data.frame(lapply(ft_order_data[,-1],normalize))
+ 
+ score_wss_order_normal<-(nrow(ft_order_data_norm)-1)*sum(apply(ft_order_data_norm,2,var))
+ 
+ for (i in 2:15) score_wss_order_normal[i] <- sum(kmeans(ft_order_data_norm,centers = i)$withinss) 
+   
+ 
+    
+
+ plot(1:15,score_wss_order_normal[1:15],type = "b", xlab = "Count of clusters", ylab = "Sum of squares with in the group", main = "The Elbow approach is used to find the best clusters for Active users",pch=20,cex=2)
+```
+
+# Given  3 and 4 appear to be the best options,let's go with 4 to see if we can improve user segment differentation
+
+```{r}
+
+library(ggplot2)
+library(cluster)
+library(factoextra)
+
+minvec1 <-sapply(ft_order_data[,-1],min)
+maxvec1 <-sapply(ft_order_data[,-1],max)
+denormalize <-function(x,minval,maxval) 
+  return(x*(maxval-minval)+ minval)
+  
+
+set.seed(0091)
+kmeans_2_cl_nom_order_data=kmeans(ft_order_data_norm,2,nstart = 100)
+
+
+kmeans_4_cl_nom_order_data= kmeans(ft_order_data_norm,4,nstart = 100)
+
+kmeans_2_cl_act_order_data = NULL
+kmeans_4_cl_act_order_data= NULL
+
+test1=NULL
+
+for (i in 1:10) 
+  {         test1=(kmeans_2_cl_nom_order_data$centers[,i]*(maxvec1[i]-minvec[i]))+ minvec1[i]
+  kmeans_2_cl_act_order_data = cbind(kmeans_2_cl_act_order_data,test1)
+  
+}
+
+colnames(kmeans_2_cl_act_order_data)=colnames(f_data[-1])
+
+
+test1=NULL
+
+for (i in 1:10) 
+  {             test1=(kmeans_4_cl_nom_order_data$centers[,i]*(maxvec1[i]-minvec[i])) + minvec1[i]
+  kmeans_4_cl_act_order_data=cbind(kmeans_4_cl_act_order_data,test1)
+  
+}
+colnames(kmeans_4_cl_act_order_data) = colnames(f_data[-1])
+
+kmeans_2_cl_act_order_data
+kmeans_2_cl_nom_order_data$size
+print("Below is the mean value of all variables in each cluster")
+kmeans_4_cl_act_order_data
+
+
+print("The following table shows the number of customers in each cluster")
+kmeans_4_cl_nom_order_data$size
+```
+
+
+# Let's take a closer look at the outcomes.
+1.cluster(1) has a low frequency , a high Average order value ,a long delivery time,and a higher distance from the restaurant.
+2.cluster(2) features a high frequency of users,a poor Average oder value and long delivery time and distance from the restaurant is lower
+3.cluster(3) has a low frequency ,a low Average order value particularly in the recent 7 days,and a low delivery time, and a lower distance from the restaurant
+4.cluster (4) has high frequency , a high Average order value and a low delivery time
+
+# so in addition to order frequency and average order value we are seeing delivery time are to a lesser extent, distance from the restaurant emerge as important variables in creating clusters. And that delivery time and restaurant distance are not directly proportinal,with more data we can find so this is the case .
+
+
+
+#At last consider the 4 cluster plot.
+```{r}
+#kmeans_3_cl_normal$centers
+#fviz_cluster(kmeans_2_cl_nom_order_data,data = ft_data_norm)
+
+print("The cluster visualization of four clusters is shown in the graph below")
+fviz_cluster(kmeans_4_cl_nom_order_data,data = ft_order_data_norm)
+```
+# From the above graph it is difficult to understand the information,but we can see how each cluster has its own different boundaries on the x and y axis, which are  distinguishing qualities that divide the users into different groups.
+
+
+# Conclusion
+I looked at Food Delivery customer data in the previous analysis .I noticed that the order frequency and values as crucial indicators to cluster users when i looked at all users together,but because of a large portion of them were not active,I only had a look at those who transacted in the previous four weeks to better understand them.A part from the above sentences i also discovered that Average delivery time was another important element for the further users.This investigation can be used to work on early consumer identification and understanding the importance to them while placing the orders which help to better target the customers.For better explanation i can consider the cluster 1 and cluster 2 we find that the average delivery time is not important to the customers and i can also display the restaurants which are at long in distance,and  from the cluster 3 and cluster 4 i should provide more choices for quicker delivery.
